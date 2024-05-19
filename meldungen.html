@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Join local JSON data with vector tile geometries</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+<style>
+body { margin: 0; padding: 0; }
+#map { position: absolute; top: 0; bottom: 0; width: 100%; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	mapboxgl.accessToken = 'pk.eyJ1Ijoib3JpZW50ZXJhcmUiLCJhIjoiTDg0RE5WZyJ9.OyBqycEeIbDxvsFSP0Pzbw';
+    const map = new mapboxgl.Map({
+        container: 'map',
+        // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+        style: 'mapbox://styles/mapbox/light-v11',
+		//style: 'mapbox://styles/orienterare/cljmsjrlv00bs01o46674gbn8',
+        center: [12, 50],
+        zoom: 2.2,
+		// pitch: 60,
+		projection: 'mercator', // 'equirectangular', // 'naturalEarth',
+    });
+
+    // Data: UN Human Development Index 2017 Europe extract
+    // Source: https://ourworldindata.org/human-development-index
+    const data = [
+		{ code: 'NOR', hdi: 2 },
+        { code: 'NLD', hdi: 2 },
+        { code: 'DNK', hdi: 8 },
+        { code: 'SWE', hdi: 2 },
+        { code: 'CHE', hdi: 2 },
+        { code: 'GBR', hdi: 1 },
+        { code: 'DEU', hdi: 63 }
+    ];
+
+    map.on('load', () => {
+        // Add source for country polygons using the Mapbox Countries tileset
+        // The polygons contain an ISO 3166 alpha-3 code which can be used to for joining the data
+        // https://docs.mapbox.com/vector-tiles/reference/mapbox-countries-v1
+        map.addSource('countries', {
+            type: 'vector',
+            url: 'mapbox://mapbox.country-boundaries-v1'
+        });
+
+        // Build a GL match expression that defines the color for every vector tile feature
+        // Use the ISO 3166-1 alpha 3 code as the lookup key for the country shape
+        const matchExpression = ['match', ['get', 'iso_3166_1_alpha_3']];
+
+        // Calculate color values for each country based on 'hdi' value
+        for (const row of data) {
+            // Convert the range of data values to a suitable color
+            const green = row['hdi'] * .25;
+            const color = `rgba( 133, 193, 233, ${green})`;
+
+            matchExpression.push(row['code'], color);
+        }
+
+        // Last value is the default, used where there is no data
+        matchExpression.push('rgba(0, 0, 0, 0)');
+
+        // Add layer from the vector tile source to create the choropleth
+        // Insert it below the 'admin-1-boundary-bg' layer in the style
+        map.addLayer(
+            {
+                'id': 'countries-join',
+                'type': 'fill',
+                'source': 'countries',
+                'source-layer': 'country_boundaries',
+                'paint': {
+                    'fill-color': matchExpression,
+                },
+            },
+            'admin-1-boundary-bg'
+        );
+    });
+</script>
+
+</body>
+</html>
